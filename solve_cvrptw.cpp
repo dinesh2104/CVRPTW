@@ -52,6 +52,9 @@ int main(int argc, char *argv[]) {
 
   auto routes = clarke_wright_cvrptw_parallel(vrp, clusters);
   // auto routes = clarke_wright_cvrptw(vrp, clusters);
+  
+  // Below approach is giving more average distance compared to other clark & wright.....
+  // auto routes = clarke_wright_cvrptw_distance(vrp, clusters);
 
   chrono::steady_clock::time_point mid_end = chrono::steady_clock::now();
 
