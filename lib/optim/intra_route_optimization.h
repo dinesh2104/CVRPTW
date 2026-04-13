@@ -19,7 +19,9 @@ std::vector<std::vector<node_t>> postprocess_2OPT(
     const VRP &vrp, std::vector<std::vector<node_t>> &final_routes);
 std::vector<std::vector<node_t>> postProcessIt(
     const VRP &vrp, std::vector<std::vector<node_t>> &final_routes, weight_t &minCost);
-
+std::vector<std::vector<node_t>> postProcessIt_parallel(
+    const VRP &vrp, std::vector<std::vector<node_t>> &final_routes, weight_t &minCost);
+    
 std::vector<std::vector<node_t>> postprocess_tsp_approx_parallel(
     const VRP &vrp, std::vector<std::vector<node_t>> &solRoutes);
 std::vector<std::vector<node_t>> postprocess_2OPT_parallel(

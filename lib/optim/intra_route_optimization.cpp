@@ -50,10 +50,10 @@ void tsp_approx(const VRP &vrp,
     if (newDistance < bestDistance && verify_tour_t(vrp, tour, ncities)) {
       
       // THREAD SAFETY: Prevent console text from garbling
-      #pragma omp critical
-      {
-        cout << "TSP Approx Improvement: " << bestDistance << " to " << newDistance << endl;
-      }
+      // #pragma omp critical
+      // {
+      //   // cout << "TSP Approx Improvement: " << bestDistance << " to " << newDistance << endl;
+      // }
       
       bestDistance = newDistance;
     } else {
@@ -173,11 +173,11 @@ void tsp_2opt(const VRP &vrp,
             verify_tour_t(vrp, tmp_tour_with_depot, ncities + 1)) {
             
           // --- THREAD SAFETY: Prevent console text from garbling ---
-          #pragma omp critical
-          {
-            cout << "2OPT Improvement: " << best_distance << " to " << new_distance
-                 << endl;
-          }
+          // #pragma omp critical
+          // {
+          //   cout << "2OPT Improvement: " << best_distance << " to " << new_distance
+          //        << endl;
+          // }
           
           improve = 0;
           for (unsigned jj = 0; jj < ncities; ++jj) {
@@ -255,7 +255,7 @@ vector<vector<node_t>> postprocess_2OPT_parallel(
 
 
 
-vector<vector<node_t>> postProcessIt(
+vector<vector<node_t>> postProcessIt_parallel(
     const VRP &vrp, vector<vector<node_t>> &final_routes, weight_t &minCost) {
   vector<vector<node_t>> postprocessed_final_routes;
 
@@ -277,6 +277,68 @@ vector<vector<node_t>> postProcessIt(
 
   auto postprocessed_final_routes3 = postprocess_2OPT_parallel(vrp, final_routes);
   // auto postprocessed_final_routes3 = postprocess_2OPT(vrp, final_routes);
+  if (verify_route_t(vrp, postprocessed_final_routes3)) {
+    cout << "Postprocess 3 route valid" << endl;
+  } else {
+    cout << "Postprocess 3 route invalid" << endl;
+  }
+
+  weight_t postprocessed_final_routes_cost = 0;
+  for (unsigned zzz = 0; zzz < final_routes.size(); ++zzz) {
+    vector<node_t> postprocessed_route2 = postprocessed_final_routes2[zzz];
+    vector<node_t> postprocessed_route3 = postprocessed_final_routes3[zzz];
+
+    unsigned sz2 = postprocessed_route2.size();
+    unsigned sz3 = postprocessed_route3.size();
+
+    weight_t postprocessed_route2_cost = 0.0;
+    postprocessed_route2_cost += vrp.get_dist(DEPOT, postprocessed_route2[0]);
+    for (unsigned jj = 1; jj < sz2; ++jj) {
+      postprocessed_route2_cost +=
+          vrp.get_dist(postprocessed_route2[jj - 1], postprocessed_route2[jj]);
+    }
+    postprocessed_route2_cost += vrp.get_dist(DEPOT, postprocessed_route2[sz2 - 1]);
+
+    weight_t postprocessed_route3_cost = 0.0;
+    postprocessed_route3_cost += vrp.get_dist(DEPOT, postprocessed_route3[0]);
+    for (unsigned jj = 1; jj < sz3; ++jj) {
+      postprocessed_route3_cost +=
+          vrp.get_dist(postprocessed_route3[jj - 1], postprocessed_route3[jj]);
+    }
+    postprocessed_route3_cost += vrp.get_dist(DEPOT, postprocessed_route3[sz3 - 1]);
+
+    if (postprocessed_route3_cost > postprocessed_route2_cost) {
+      postprocessed_final_routes_cost += postprocessed_route2_cost;
+      postprocessed_final_routes.push_back(postprocessed_route2);
+    } else {
+      postprocessed_final_routes_cost += postprocessed_route3_cost;
+      postprocessed_final_routes.push_back(postprocessed_route3);
+    }
+  }
+
+  minCost = postprocessed_final_routes_cost;
+  return postprocessed_final_routes;
+}
+
+vector<vector<node_t>> postProcessIt(
+    const VRP &vrp, vector<vector<node_t>> &final_routes, weight_t &minCost) {
+  vector<vector<node_t>> postprocessed_final_routes;
+
+  auto postprocessed_final_routes1 = postprocess_tsp_approx(vrp, final_routes);
+  if (verify_route_t(vrp, postprocessed_final_routes1)) {
+    cout << "\nPostprocess 1 route valid" << endl;
+  } else {
+    cout << "\nPostprocess 1 route invalid" << endl;
+  }
+
+  auto postprocessed_final_routes2 = postprocess_2OPT(vrp, postprocessed_final_routes1);
+  if (verify_route_t(vrp, postprocessed_final_routes2)) {
+    cout << "Postprocess 2 route valid" << endl;
+  } else {
+    cout << "Postprocess 2 route invalid" << endl;
+  }
+
+  auto postprocessed_final_routes3 = postprocess_2OPT(vrp, final_routes);
   if (verify_route_t(vrp, postprocessed_final_routes3)) {
     cout << "Postprocess 3 route valid" << endl;
   } else {

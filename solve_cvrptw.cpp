@@ -36,8 +36,16 @@ int main(int argc, char *argv[]) {
 
   
   double angle_range = stod(argv[2]);
-  // vector<vector<node_t>> clusters = clustering_angle_sweep(vrp, angle_range);
-  vector<vector<node_t>> clusters = clustering_angle_sweep_parallel(vrp, angle_range,1000);
+
+  // vector<vector<node_t>> clusters =
+  //     clustering_angle_sweep_parallel(vrp, angle_range, 1000);
+  vector<vector<node_t>> clusters = clustering_angle_sweep(vrp, angle_range);
+  // vector<vector<node_t>> clusters = clustering_hierarchical(vrp, n_clusters);
+  // vector<vector<node_t>> clusters = clustering_kmedoid(vrp, n_clusters);
+  // vector<vector<node_t>> clusters = clustering_kmeans_plus_plus(vrp, n_clusters);
+  // vector<vector<node_t>> clusters = clustering_k_far(vrp, n_clusters);
+  
+
 
   for (int i = 0; i < static_cast<int>(clusters.size()); i++) {
     cout << "Cluster " << i << ": ";
@@ -50,8 +58,11 @@ int main(int argc, char *argv[]) {
   chrono::steady_clock::time_point pre_end = chrono::steady_clock::now();
   chrono::steady_clock::time_point mid_start = chrono::steady_clock::now();
 
+#ifdef USE_PARALLEL
   auto routes = clarke_wright_cvrptw_parallel(vrp, clusters);
-  // auto routes = clarke_wright_cvrptw(vrp, clusters);
+#else
+  auto routes = clarke_wright_cvrptw(vrp, clusters);
+#endif
   
   // Below approach is giving more average distance compared to other clark & wright.....
   // auto routes = clarke_wright_cvrptw_distance(vrp, clusters);
@@ -69,26 +80,42 @@ int main(int argc, char *argv[]) {
 
   chrono::steady_clock::time_point post_start = chrono::steady_clock::now();
 
+#ifdef USE_PARALLEL
   inter_route_relocate_parallel(vrp, routes);
-  // inter_route_relocate(vrp, routes);
+#else
+  inter_route_relocate(vrp, routes);
+#endif
   weight_t post_relocate_cost = calculate_total_cost(vrp, routes);
 
+#ifdef USE_PARALLEL
   inter_route_swap_parallel(vrp, routes);
-  // inter_route_swap(vrp, routes);
+#else
+  inter_route_swap(vrp, routes);
+#endif
   weight_t post_swap_cost = calculate_total_cost(vrp, routes);
 
+#ifdef USE_PARALLEL
   inter_route_2opt_star_parallel(vrp, routes);
-  // inter_route_2opt_star(vrp, routes);
+#else
+  inter_route_2opt_star(vrp, routes);
+#endif
   weight_t post_2opt_star_cost = calculate_total_cost(vrp, routes);
 
   auto best_routes = routes;
   weight_t post_optimized_cost = min_cost;
  
+#ifdef USE_PARALLEL
+  best_routes = postProcessIt_parallel(vrp, best_routes, post_optimized_cost);
+#else
   best_routes = postProcessIt(vrp, best_routes, post_optimized_cost);
+#endif
+  
   weight_t post_process_it_cost = calculate_total_cost(vrp, best_routes);
 
   chrono::steady_clock::time_point post_end = chrono::steady_clock::now();
   chrono::steady_clock::time_point total_end = chrono::steady_clock::now();
+
+  // auto best_routes=routes;
 
   min_cost = calculate_total_cost(vrp, best_routes);
   print_routes(best_routes);

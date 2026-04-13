@@ -7,22 +7,26 @@
 using namespace std;
 
 void inter_route_relocate(const VRP &vrp, vector<vector<node_t>> &routes) {
+  cout<<"Starting sequential inter-route relocate optimization..."<<endl;
   bool improvement = true;
 
   while (improvement) {
     improvement = false;
+    double global_best_gain = 1e-6;
+    int best_r1 = -1;
+    int best_r2 = -1;
+    vector<node_t> best_routeA;
+    vector<node_t> best_routeB;
 
-    for (size_t r1 = 0; r1 < routes.size(); r1++) {
-      for (size_t r2 = 0; r2 < routes.size(); r2++) {
-        if (r1 == r2) {
-          continue;
-        }
+    const int num_routes = static_cast<int>(routes.size());
 
-        auto &routeA = routes[r1];
-        auto &routeB = routes[r2];
-        if (routeA.size() <= 2) {
-          continue;
-        }
+    for (int r1 = 0; r1 < num_routes; r1++) {
+      for (int r2 = 0; r2 < num_routes; r2++) {
+        if (r1 == r2) continue;
+
+        const auto &routeA = routes[r1];
+        const auto &routeB = routes[r2];
+        if (routeA.size() <= 2) continue;
 
         for (size_t i = 1; i < routeA.size() - 1; i++) {
           node_t u = routeA[i];
@@ -40,7 +44,7 @@ void inter_route_relocate(const VRP &vrp, vector<vector<node_t>> &routes) {
                 vrp.get_dist(x, u) + vrp.get_dist(u, y) - vrp.get_dist(x, y);
             double total_gain = savings_A - cost_B;
 
-            if (total_gain > 1e-6) {
+            if (total_gain > global_best_gain) {
               vector<node_t> new_routeA = routeA;
               vector<node_t> new_routeB = routeB;
 
@@ -49,17 +53,24 @@ void inter_route_relocate(const VRP &vrp, vector<vector<node_t>> &routes) {
 
               if (verify_single_route(vrp, new_routeA) &&
                   verify_single_route(vrp, new_routeB)) {
-                routeA = new_routeA;
-                routeB = new_routeB;
-                improvement = true;
-                goto end_of_search;
+                global_best_gain = total_gain;
+                best_r1 = r1;
+                best_r2 = r2;
+                best_routeA = std::move(new_routeA);
+                best_routeB = std::move(new_routeB);
               }
             }
           }
         }
       }
     }
-  end_of_search:
+
+    if (global_best_gain > 1e-6) {
+      routes[best_r1] = std::move(best_routeA);
+      routes[best_r2] = std::move(best_routeB);
+      improvement = true;
+    }
+
     for (auto it = routes.begin(); it != routes.end();) {
       if (it->size() <= 2) {
         it = routes.erase(it);
@@ -167,21 +178,30 @@ void inter_route_relocate_parallel(const VRP &vrp, vector<vector<node_t>> &route
 }
 
 
-
 void inter_route_swap(const VRP &vrp, vector<vector<node_t>> &routes) {
+  cout<<"Starting sequential inter-route swap optimization..."<<endl;
   bool improvement = true;
 
   while (improvement) {
     improvement = false;
 
-    for (size_t r1 = 0; r1 < routes.size(); r1++) {
-      for (size_t r2 = r1 + 1; r2 < routes.size(); r2++) {
-        auto &routeA = routes[r1];
-        auto &routeB = routes[r2];
+    double global_best_gain = 1e-6;
+    int best_r1 = -1;
+    int best_r2 = -1;
+    vector<node_t> best_routeA;
+    vector<node_t> best_routeB;
 
-        if (routeA.size() <= 2 || routeB.size() <= 2) {
-          continue;
-        }
+    const int num_routes = static_cast<int>(routes.size());
+
+    for (int r1 = 0; r1 < num_routes; r1++) {
+      for (int r2 = r1 + 1; r2 < num_routes; r2++) {
+        const auto &routeA = routes[r1];
+        const auto &routeB = routes[r2];
+
+        if (routeA.size() <= 2 || routeB.size() <= 2) continue;
+
+        double base_load_A = vrp.get_route_load(routeA);
+        double base_load_B = vrp.get_route_load(routeB);
 
         for (size_t i = 1; i < routeA.size() - 1; i++) {
           node_t u = routeA[i];
@@ -199,14 +219,11 @@ void inter_route_swap(const VRP &vrp, vector<vector<node_t>> &routes) {
                                 vrp.get_dist(x, u) + vrp.get_dist(u, y);
             double total_gain = cost_before - cost_after;
 
-            if (total_gain > 1e-6) {
-              double current_load_A = vrp.get_route_load(routeA);
-              double current_load_B = vrp.get_route_load(routeB);
-
+            if (total_gain > global_best_gain) {
               double new_load_A =
-                  current_load_A - vrp.node[u].demand + vrp.node[v].demand;
+                  base_load_A - vrp.node[u].demand + vrp.node[v].demand;
               double new_load_B =
-                  current_load_B - vrp.node[v].demand + vrp.node[u].demand;
+                  base_load_B - vrp.node[v].demand + vrp.node[u].demand;
 
               if (new_load_A <= vrp.getCapacity() &&
                   new_load_B <= vrp.getCapacity()) {
@@ -218,10 +235,11 @@ void inter_route_swap(const VRP &vrp, vector<vector<node_t>> &routes) {
 
                 if (verify_single_route(vrp, new_routeA) &&
                     verify_single_route(vrp, new_routeB)) {
-                  routeA = new_routeA;
-                  routeB = new_routeB;
-                  improvement = true;
-                  goto end_of_search;
+                  global_best_gain = total_gain;
+                  best_r1 = r1;
+                  best_r2 = r2;
+                  best_routeA = std::move(new_routeA);
+                  best_routeB = std::move(new_routeB);
                 }
               }
             }
@@ -229,7 +247,12 @@ void inter_route_swap(const VRP &vrp, vector<vector<node_t>> &routes) {
         }
       }
     }
-  end_of_search:;
+
+    if (global_best_gain > 1e-6) {
+      routes[best_r1] = std::move(best_routeA);
+      routes[best_r2] = std::move(best_routeB);
+      improvement = true;
+    }
   }
 }
 
@@ -334,19 +357,26 @@ void inter_route_swap_parallel(const VRP &vrp, vector<vector<node_t>> &routes) {
 
 
 void inter_route_2opt_star(const VRP &vrp, vector<vector<node_t>> &routes) {
+  cout<<"Starting sequential inter-route 2-opt* optimization..."<<endl;
   bool improvement = true;
 
   while (improvement) {
     improvement = false;
 
-    for (size_t r1 = 0; r1 < routes.size(); r1++) {
-      for (size_t r2 = r1 + 1; r2 < routes.size(); r2++) {
-        auto &routeA = routes[r1];
-        auto &routeB = routes[r2];
+    double global_best_gain = 1e-6;
+    int best_r1 = -1;
+    int best_r2 = -1;
+    vector<node_t> best_routeA;
+    vector<node_t> best_routeB;
 
-        if (routeA.size() <= 2 || routeB.size() <= 2) {
-          continue;
-        }
+    const int num_routes = static_cast<int>(routes.size());
+
+    for (int r1 = 0; r1 < num_routes; r1++) {
+      for (int r2 = r1 + 1; r2 < num_routes; r2++) {
+        const auto &routeA = routes[r1];
+        const auto &routeB = routes[r2];
+
+        if (routeA.size() <= 2 || routeB.size() <= 2) continue;
 
         for (size_t i = 0; i < routeA.size() - 1; i++) {
           node_t t = routeA[i];
@@ -360,18 +390,22 @@ void inter_route_2opt_star(const VRP &vrp, vector<vector<node_t>> &routes) {
             double cost_after = vrp.get_dist(t, v) + vrp.get_dist(x, u);
             double total_gain = cost_before - cost_after;
 
-            if (total_gain > 1e-6) {
+            if (total_gain > global_best_gain) {
               vector<node_t> new_routeA;
               vector<node_t> new_routeB;
 
               new_routeA.reserve(routeA.size() + routeB.size());
               new_routeB.reserve(routeA.size() + routeB.size());
 
-              new_routeA.insert(new_routeA.end(), routeA.begin(), routeA.begin() + i + 1);
-              new_routeA.insert(new_routeA.end(), routeB.begin() + j + 1, routeB.end());
+              new_routeA.insert(new_routeA.end(), routeA.begin(),
+                                routeA.begin() + i + 1);
+              new_routeA.insert(new_routeA.end(), routeB.begin() + j + 1,
+                                routeB.end());
 
-              new_routeB.insert(new_routeB.end(), routeB.begin(), routeB.begin() + j + 1);
-              new_routeB.insert(new_routeB.end(), routeA.begin() + i + 1, routeA.end());
+              new_routeB.insert(new_routeB.end(), routeB.begin(),
+                                routeB.begin() + j + 1);
+              new_routeB.insert(new_routeB.end(), routeA.begin() + i + 1,
+                                routeA.end());
 
               double new_load_A = vrp.get_route_load(new_routeA);
               double new_load_B = vrp.get_route_load(new_routeB);
@@ -380,28 +414,11 @@ void inter_route_2opt_star(const VRP &vrp, vector<vector<node_t>> &routes) {
                   new_load_B <= vrp.getCapacity()) {
                 if (verify_single_route(vrp, new_routeA) &&
                     verify_single_route(vrp, new_routeB)) {
-                  cout<<"Before 2-opt* between routes r1 and r2 "<< endl;
-                  for(auto node : routeA){
-                    cout<<node<<" ";
-                  }
-                  cout<<endl;
-                  for(auto node : routeB){
-                    cout<<node<<" ";
-                  }
-                  cout<<endl;
-                  routeA = new_routeA;
-                  routeB = new_routeB;
-                  cout<<"After 2-opt* between routes r1 and r2 "<< endl;
-                  for(auto node : routeA){
-                    cout<<node<<" ";
-                  }
-                  cout<<endl;
-                  for(auto node : routeB){
-                    cout<<node<<" ";
-                  }
-                  cout<<endl;
-                  improvement = true;
-                  goto end_of_search;
+                  global_best_gain = total_gain;
+                  best_r1 = r1;
+                  best_r2 = r2;
+                  best_routeA = std::move(new_routeA);
+                  best_routeB = std::move(new_routeB);
                 }
               }
             }
@@ -409,7 +426,13 @@ void inter_route_2opt_star(const VRP &vrp, vector<vector<node_t>> &routes) {
         }
       }
     }
-  end_of_search:
+
+    if (global_best_gain > 1e-6) {
+      routes[best_r1] = std::move(best_routeA);
+      routes[best_r2] = std::move(best_routeB);
+      improvement = true;
+    }
+
     for (auto it = routes.begin(); it != routes.end();) {
       if (it->size() <= 2) {
         it = routes.erase(it);

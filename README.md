@@ -37,10 +37,15 @@ This project is configured for Linux-style execution.
 
 From the project root:
 
-To build the executable:
+To build the executable(sequential version):
 
 ```bash
 make
+```
+To build the executable(parallel version):
+
+```bash
+make par
 ```
 
 
@@ -74,11 +79,20 @@ Or with a file from the `testcase/` folder:
 
 The repository also includes `test.sh`, which runs the solver on every file inside `testcase/` for multiple angle values and stores the best result.
 
-Run:
+Run (Sequential version):
 
 ```bash
 bash test.sh
 ```
+
+Run (Parallel version):
+
+```bash
+# bash test.sh -p
+bash test.sh --parallel
+
+```
+ 
 
 The script currently tests these angles:
 `30`,`45`,`60`,`90`,`180`
@@ -161,6 +175,10 @@ The summary line written to `stderr` includes values such as:
 
 ```bash
 make
+./solve_cvrptw testcase/c101.txt 45
+```
+```bash
+make par
 ./solve_cvrptw testcase/c101.txt 45
 ```
 

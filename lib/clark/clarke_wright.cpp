@@ -2,12 +2,14 @@
 #include "../route_utils.h"
 #include <omp.h>
 #include <algorithm>
+#include <iostream>
 #include <vector>
 
 using namespace std;
 
 vector<vector<node_t>> clarke_wright_cvrptw(
     const VRP &vrp, const vector<vector<int>> &clusters) {
+      cout<<"Running sequential Clarke & Wright..."<<endl;
   double alpha = 0.7;
   double beta = 0.3;
 
