@@ -7,13 +7,13 @@ This project is a C++ implementation of a solver for the Capacitated Vehicle Rou
 - inter-route and intra-route local search,
 - OpenMP-based parallelism in multiple stages.
 
-The main executable is `solve_cvrptw`.
+The main executable is `solve_cvrptw`. The dataset to evaluate the algorithm is present in https://www.sintef.no/projectweb/top/vrptw/1000-customers/
 
 ## Project Overview
 
 At a high level, the solver works as follows:
 
-1. Read a instance from a file.
+1. Read an instance from a file.
 2. Build the distance graph for all nodes.
 3. Create clusters using angle-sweep clustering.
 4. Construct routes inside those clusters using Clarke-Wright.
